@@ -1,0 +1,6 @@
+Django==5.2.10
+djangorestframework
+djangorestframework-simplejwt
+psycopg2-binary
+paho-mqtt
+python-dotenv

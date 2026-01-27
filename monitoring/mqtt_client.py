@@ -1,9 +1,7 @@
 import json
 import paho.mqtt.client as mqtt
-from django.conf import settings
-from .models import Sensor, Measurement
 
-BROKER = "test.mosquitto.org"  # ou l’IP du broker de ton collègue
+BROKER = "test.mosquitto.org"
 PORT = 1883
 TOPIC = "iot/measurements"
 
@@ -12,6 +10,8 @@ def on_connect(client, userdata, flags, rc):
     client.subscribe(TOPIC)
 
 def on_message(client, userdata, msg):
+    from .models import Sensor, Measurement  
+
     try:
         payload = json.loads(msg.payload.decode())
         print("Message reçu :", payload)

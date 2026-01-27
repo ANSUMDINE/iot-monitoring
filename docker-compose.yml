@@ -21,6 +21,8 @@ services:
       - "8000:8000"
     depends_on:
       - db
+    environment: 
+      - DISABLE_MQTT=true
 
 volumes:
   postgres_data:

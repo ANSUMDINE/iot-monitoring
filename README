@@ -1,0 +1,225 @@
+# IoT Monitor Backend — Django + MQTT + Docker
+
+Système complet de **collecte**, **traitement** et **stockage** de données IoT en temps réel depuis un **ESP32 (Wokwi)** vers **PostgreSQL**, via **MQTT** et un backend **Django** entièrement Dockerisé.
+
+
+
+#  Fonctionnalités principales
+
+- ESP32 (Wokwi) → MQTT → Django → PostgreSQL  
+- Client MQTT intégré dans Django via `AppConfig.ready()`
+- Stockage structuré : `Sensor` + `Measurement`
+- Logs temps réel des messages MQTT
+- Admin Django pour visualiser les données
+- API REST pour accéder aux capteurs et mesures
+- Docker Compose : PostgreSQL + Django
+
+
+
+#  Architecture générale
+
+```
+ESP32 Wokwi (DHT22 + LDR)
+     ↓ JSON MQTT {"sensor_id": 3, "type": "light", "value": 2.57, "unit": "V"}
+broker.emqx.io:1883 (iot/measurements)
+     ↓
+Django (MonitoringConfig.ready → start_mqtt)
+mqtt_client.py (Paho MQTT)
+     ↓
+PostgreSQL (iotdb)
+     ↑
+Django Admin / API REST
+localhost:8000/admin/
+```
+
+
+
+#  Installation & Démarrage
+
+```bash
+git clone <ton-repo>
+cd iot-monitor-backend
+
+cp .env.example .env
+
+docker-compose up --build
+```
+
+### Logs attendus :
+
+```
+MonitoringConfig.ready() exécuté
+Lancement du client MQTT…
+start_mqtt() appelé
+MQTT connecté avec le code : 0
+Message reçu : {...}
+Mesure enregistrée
+```
+
+---
+
+#  Test avec Wokwi (ESP32)
+
+1. Crée un projet ESP32 : https://wokwi.com/projects/new/esp32  
+2. Configure MQTT :
+
+```
+broker: broker.emqx.io
+port: 1883
+topic: iot/measurements
+```
+
+3. Exemple de message publié :
+
+```json
+{
+  "sensor_id": 3,
+  "type": "light",
+  "value": 2.57,
+  "unit": "V"
+}
+```
+
+4. Logs Django :
+
+```
+Message reçu : {'sensor_id': 3, 'value': 2.57, 'unit': 'V'}
+Mesure enregistrée
+```
+
+---
+
+#  Accès aux données
+
+### Admin Django  
+http://localhost:8000/admin/
+
+Créer un superuser :
+
+```bash
+docker-compose exec web python manage.py createsuperuser
+```
+
+---
+
+#  Vérification des données
+
+```bash
+docker-compose exec web python manage.py shell
+```
+
+```python
+from monitoring.models import Sensor, Measurement
+Sensor.objects.all()
+Measurement.objects.order_by('-created_at')[:5]
+```
+
+---
+
+#  API REST — Routes disponibles
+
+Toutes les routes sont préfixées par `/api/monitoring/`.
+
+##  **1. Liste des capteurs**
+```
+GET /api/monitoring/sensors/
+```
+
+### Réponse :
+```json
+[
+  { "id": 1, "name": "Capteur Temp Salon" },
+  { "id": 2, "name": "Capteur Humidité Salon" },
+  { "id": 3, "name": "Capteur Lumière Salon" }
+]
+```
+
+---
+
+##  **2. Détails d’un capteur**
+```
+GET /api/monitoring/sensors/<id>/
+```
+
+---
+
+##  **3. Liste des mesures**
+```
+GET /api/monitoring/measurements/
+```
+
+---
+
+##  **4. Mesures d’un capteur**
+```
+GET /api/monitoring/sensors/<id>/measurements/
+```
+
+---
+
+##  **5. Dernière mesure d’un capteur**
+```
+GET /api/monitoring/sensors/<id>/last/
+```
+
+### Exemple :
+```json
+{
+  "sensor": 3,
+  "value": 2.57,
+  "unit": "V",
+  "created_at": "2026-01-28T15:07:55Z"
+}
+```
+
+---
+
+#  Structure du projet
+
+```
+├── docker-compose.yml
+├── Dockerfile
+├── .env
+├── backend/
+│   ├── settings.py
+│   └── urls.py
+├── monitoring/
+│   ├── __init__.py
+│   ├── apps.py
+│   ├── mqtt_client.py
+│   ├── models.py
+│   ├── views.py
+│   ├── urls.py
+│   └── migrations/
+└── requirements.txt
+```
+
+---
+
+#  Problèmes rencontrés & solutions
+
+| Problème | Cause | Solution |
+|----------|--------|----------|
+| MQTT ne démarrait pas | AppConfig non chargé | `'monitoring.apps.MonitoringConfig'` |
+| ready() non exécuté | Django reloader | Vérification `RUN_MAIN` |
+| “Sensor matching query does not exist” | DB Docker vide | Création manuelle des capteurs |
+| Pas de logs MQTT | Buffering Docker | `print()` + exécution dans ready() |
+| Migrations non appliquées | Django ne démarrait pas | Correction docker-compose |
+
+---
+
+#  Technologies
+
+| Stack | Version |
+|-------|---------|
+| Python | 3.11 |
+| Django | 5.2 |
+| PostgreSQL | 15 |
+| Paho MQTT | latest |
+| Docker Compose | latest |
+
+---
+
+#  Auteur
+
+**Said ANSUMDINE**  

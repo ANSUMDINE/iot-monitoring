@@ -1,28 +1,54 @@
-version: '3.9'
-
 services:
   db:
     image: postgres:15
-    environment:
-      POSTGRES_DB: iotdb
-      POSTGRES_USER: iotuser
-      POSTGRES_PASSWORD: iotpassword
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
+    env_file:
+      - .env
     ports:
       - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
 
   web:
     build: .
-    command: python manage.py runserver 0.0.0.0:8000
+    env_file:
+      - .env
+    environment:
+      - PYTHONUNBUFFERED=1
     volumes:
       - .:/app
     ports:
       - "8000:8000"
     depends_on:
       - db
-    environment: 
-      - DISABLE_MQTT=true
+    command: >
+      sh -c "
+      while ! nc -z db 5432; do sleep 1; done;
+      python manage.py migrate;
+      python manage.py runserver 0.0.0.0:8000
+      "
+
+  mqtt_worker:
+    build: .
+    env_file:
+      - .env
+    environment:
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      - db
+    volumes:
+      - .:/app
+    command: >
+      sh -c "
+      while ! nc -z db 5432; do 
+      echo '⏳ Attente PostgreSQL...'; 
+      sleep 1; 
+      done;
+      echo 'PostgreSQL prêt !';
+      echo ' Démarrage IoT MQTT Worker...';
+      python manage.py mqtt_worker
+      "
+
+
 
 volumes:
   postgres_data:

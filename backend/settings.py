@@ -46,7 +46,7 @@ INSTALLED_APPS = [
 
     # Apps du projet
     'rest_framework',
-    'monitoring',
+    'monitoring.apps.MonitoringConfig',
     'accounts',
 ]
 

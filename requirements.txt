@@ -4,3 +4,4 @@ djangorestframework-simplejwt
 psycopg2-binary
 paho-mqtt
 python-dotenv
+django-cors-headers
